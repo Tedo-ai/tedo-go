@@ -12,6 +12,203 @@ type BillingService struct {
 }
 
 // ============================================================
+// PLANS
+// ============================================================
+
+// Plan represents a subscription plan.
+type Plan struct {
+	ID           string        `json:"id"`
+	Key          string        `json:"key"`
+	Name         string        `json:"name"`
+	Description  string        `json:"description,omitempty"`
+	IsActive     bool          `json:"is_active"`
+	Prices       []Price       `json:"prices,omitempty"`
+	Entitlements []Entitlement `json:"entitlements,omitempty"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at,omitempty"`
+}
+
+// CreatePlanParams are the parameters for creating a plan.
+type CreatePlanParams struct {
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
+// CreatePlan creates a new subscription plan.
+func (s *BillingService) CreatePlan(ctx context.Context, params *CreatePlanParams) (*Plan, error) {
+	var plan Plan
+	err := s.client.request(ctx, "POST", "/billing/plans", params, &plan)
+	if err != nil {
+		return nil, err
+	}
+	return &plan, nil
+}
+
+// PlanList is a list of plans.
+type PlanList struct {
+	Plans []Plan `json:"plans"`
+	Total int    `json:"total"`
+}
+
+// ListPlans lists all plans.
+func (s *BillingService) ListPlans(ctx context.Context) (*PlanList, error) {
+	var list PlanList
+	err := s.client.request(ctx, "GET", "/billing/plans", nil, &list)
+	if err != nil {
+		return nil, err
+	}
+	return &list, nil
+}
+
+// GetPlan retrieves a plan by ID.
+func (s *BillingService) GetPlan(ctx context.Context, id string) (*Plan, error) {
+	var plan Plan
+	err := s.client.request(ctx, "GET", "/billing/plans/"+id, nil, &plan)
+	if err != nil {
+		return nil, err
+	}
+	return &plan, nil
+}
+
+// UpdatePlanParams are the parameters for updating a plan.
+type UpdatePlanParams struct {
+	Key         *string `json:"key,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+	IsActive    *bool   `json:"is_active,omitempty"`
+}
+
+// UpdatePlan updates a plan.
+func (s *BillingService) UpdatePlan(ctx context.Context, id string, params *UpdatePlanParams) (*Plan, error) {
+	var plan Plan
+	err := s.client.request(ctx, "PATCH", "/billing/plans/"+id, params, &plan)
+	if err != nil {
+		return nil, err
+	}
+	return &plan, nil
+}
+
+// DeletePlan deletes (deactivates) a plan.
+func (s *BillingService) DeletePlan(ctx context.Context, id string) error {
+	return s.client.request(ctx, "DELETE", "/billing/plans/"+id, nil, nil)
+}
+
+// ============================================================
+// PRICES
+// ============================================================
+
+// Price represents a price for a plan.
+type Price struct {
+	ID            string    `json:"id"`
+	PlanID        string    `json:"plan_id"`
+	Key           string    `json:"key"`
+	Amount        int       `json:"amount"` // in cents
+	Currency      string    `json:"currency"`
+	Interval      string    `json:"interval"` // month, year
+	IntervalCount int       `json:"interval_count"`
+	TrialDays     int       `json:"trial_days,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+// CreatePriceParams are the parameters for creating a price.
+type CreatePriceParams struct {
+	Key           string `json:"key"`
+	Amount        int    `json:"amount"`
+	Currency      string `json:"currency,omitempty"`
+	Interval      string `json:"interval,omitempty"`
+	IntervalCount int    `json:"interval_count,omitempty"`
+	TrialDays     int    `json:"trial_days,omitempty"`
+}
+
+// CreatePrice creates a new price for a plan.
+func (s *BillingService) CreatePrice(ctx context.Context, planID string, params *CreatePriceParams) (*Price, error) {
+	var price Price
+	err := s.client.request(ctx, "POST", "/billing/plans/"+planID+"/prices", params, &price)
+	if err != nil {
+		return nil, err
+	}
+	return &price, nil
+}
+
+// PriceList is a list of prices.
+type PriceList struct {
+	Prices []Price `json:"prices"`
+	Total  int     `json:"total"`
+}
+
+// ListPrices lists all prices for a plan.
+func (s *BillingService) ListPrices(ctx context.Context, planID string) (*PriceList, error) {
+	var list PriceList
+	err := s.client.request(ctx, "GET", "/billing/plans/"+planID+"/prices", nil, &list)
+	if err != nil {
+		return nil, err
+	}
+	return &list, nil
+}
+
+// ArchivePrice archives a price.
+func (s *BillingService) ArchivePrice(ctx context.Context, planID, priceID string) error {
+	return s.client.request(ctx, "DELETE", "/billing/plans/"+planID+"/prices/"+priceID, nil, nil)
+}
+
+// ============================================================
+// ENTITLEMENTS (Plan Features)
+// ============================================================
+
+// Entitlement represents a feature/limit on a plan.
+type Entitlement struct {
+	ID           string    `json:"id"`
+	PlanID       string    `json:"plan_id"`
+	Key          string    `json:"key"`
+	ValueBool    *bool     `json:"value_bool,omitempty"`
+	ValueInt     *int      `json:"value_int,omitempty"`
+	OveragePrice int       `json:"overage_price,omitempty"`
+	OverageUnit  int       `json:"overage_unit,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+// CreateEntitlementParams are the parameters for creating an entitlement.
+type CreateEntitlementParams struct {
+	Key          string `json:"key"`
+	ValueBool    *bool  `json:"value_bool,omitempty"`
+	ValueInt     *int   `json:"value_int,omitempty"`
+	OveragePrice int    `json:"overage_price,omitempty"`
+	OverageUnit  int    `json:"overage_unit,omitempty"`
+}
+
+// CreateEntitlement creates an entitlement for a plan.
+func (s *BillingService) CreateEntitlement(ctx context.Context, planID string, params *CreateEntitlementParams) (*Entitlement, error) {
+	var entitlement Entitlement
+	err := s.client.request(ctx, "POST", "/billing/plans/"+planID+"/entitlements", params, &entitlement)
+	if err != nil {
+		return nil, err
+	}
+	return &entitlement, nil
+}
+
+// EntitlementList is a list of entitlements.
+type EntitlementList struct {
+	Entitlements []Entitlement `json:"entitlements"`
+	Total        int           `json:"total"`
+}
+
+// ListEntitlements lists all entitlements for a plan.
+func (s *BillingService) ListEntitlements(ctx context.Context, planID string) (*EntitlementList, error) {
+	var list EntitlementList
+	err := s.client.request(ctx, "GET", "/billing/plans/"+planID+"/entitlements", nil, &list)
+	if err != nil {
+		return nil, err
+	}
+	return &list, nil
+}
+
+// ArchiveEntitlement archives an entitlement.
+func (s *BillingService) ArchiveEntitlement(ctx context.Context, planID, entitlementID string) error {
+	return s.client.request(ctx, "DELETE", "/billing/plans/"+planID+"/entitlements/"+entitlementID, nil, nil)
+}
+
+// ============================================================
 // CUSTOMERS
 // ============================================================
 
@@ -97,10 +294,10 @@ func (s *BillingService) ListCustomers(ctx context.Context, params *ListCustomer
 
 // UpdateCustomerParams are the parameters for updating a customer.
 type UpdateCustomerParams struct {
-	Email      *string            `json:"email,omitempty"`
-	Name       *string            `json:"name,omitempty"`
-	ExternalID *string            `json:"external_id,omitempty"`
-	Metadata   map[string]string  `json:"metadata,omitempty"`
+	Email      *string           `json:"email,omitempty"`
+	Name       *string           `json:"name,omitempty"`
+	ExternalID *string           `json:"external_id,omitempty"`
+	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
 // UpdateCustomer updates a customer.
@@ -124,15 +321,15 @@ func (s *BillingService) DeleteCustomer(ctx context.Context, id string) error {
 
 // Subscription represents a billing subscription.
 type Subscription struct {
-	ID         string     `json:"id"`
-	CustomerID string     `json:"customer_id"`
-	PriceID    string     `json:"price_id"`
-	Status     string     `json:"status"` // active, canceled, past_due
-	Quantity   int        `json:"quantity,omitempty"`
-	StartedAt  time.Time  `json:"started_at"`
-	CanceledAt *time.Time `json:"canceled_at,omitempty"`
+	ID         string            `json:"id"`
+	CustomerID string            `json:"customer_id"`
+	PriceID    string            `json:"price_id"`
+	Status     string            `json:"status"` // active, canceled, past_due
+	Quantity   int               `json:"quantity,omitempty"`
+	StartedAt  time.Time         `json:"started_at"`
+	CanceledAt *time.Time        `json:"canceled_at,omitempty"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
+	CreatedAt  time.Time         `json:"created_at"`
 }
 
 // CreateSubscriptionParams are the parameters for creating a subscription.
@@ -254,4 +451,30 @@ func (s *BillingService) GetUsageSummary(ctx context.Context, params *GetUsageSu
 		return nil, err
 	}
 	return &summary, nil
+}
+
+// ============================================================
+// PORTAL
+// ============================================================
+
+// PortalLink represents a customer portal link.
+type PortalLink struct {
+	PortalURL string    `json:"portal_url"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// CreatePortalLinkParams are the parameters for creating a portal link.
+type CreatePortalLinkParams struct {
+	ExpiresInHours int `json:"expires_in_hours,omitempty"`
+}
+
+// CreatePortalLink creates a portal link for a customer.
+func (s *BillingService) CreatePortalLink(ctx context.Context, customerID string, params *CreatePortalLinkParams) (*PortalLink, error) {
+	var link PortalLink
+	err := s.client.request(ctx, "POST", "/billing/customers/"+customerID+"/portal-link", params, &link)
+	if err != nil {
+		return nil, err
+	}
+	return &link, nil
 }
