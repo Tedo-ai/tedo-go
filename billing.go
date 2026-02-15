@@ -11,6 +11,16 @@ type BillingService struct {
 	client *Client
 }
 
+// Plan/price keys for Tedo's built-in billing plans.
+const (
+	GuestPlanKey  = "guest"
+	GuestPriceKey = "guest_monthly_EUR"
+	FreePlanKey   = "free"
+	FreePriceKey  = "free_monthly_EUR"
+	BasicPlanKey  = "basic"
+	BasicPriceKey = "basic_monthly_EUR"
+)
+
 // ============================================================
 // PLANS
 // ============================================================
@@ -38,7 +48,7 @@ type CreatePlanParams struct {
 // CreatePlan creates a new subscription plan.
 func (s *BillingService) CreatePlan(ctx context.Context, params *CreatePlanParams) (*Plan, error) {
 	var plan Plan
-	err := s.client.request(ctx, "POST", "/billing/plans", params, &plan)
+	err := s.client.request(ctx, "POST", "/billing/v1/plans", params, &plan)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +64,7 @@ type PlanList struct {
 // ListPlans lists all plans.
 func (s *BillingService) ListPlans(ctx context.Context) (*PlanList, error) {
 	var list PlanList
-	err := s.client.request(ctx, "GET", "/billing/plans", nil, &list)
+	err := s.client.request(ctx, "GET", "/billing/v1/plans", nil, &list)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +74,7 @@ func (s *BillingService) ListPlans(ctx context.Context) (*PlanList, error) {
 // GetPlan retrieves a plan by ID.
 func (s *BillingService) GetPlan(ctx context.Context, id string) (*Plan, error) {
 	var plan Plan
-	err := s.client.request(ctx, "GET", "/billing/plans/"+id, nil, &plan)
+	err := s.client.request(ctx, "GET", "/billing/v1/plans/"+id, nil, &plan)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +92,7 @@ type UpdatePlanParams struct {
 // UpdatePlan updates a plan.
 func (s *BillingService) UpdatePlan(ctx context.Context, id string, params *UpdatePlanParams) (*Plan, error) {
 	var plan Plan
-	err := s.client.request(ctx, "PATCH", "/billing/plans/"+id, params, &plan)
+	err := s.client.request(ctx, "PATCH", "/billing/v1/plans/"+id, params, &plan)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +101,7 @@ func (s *BillingService) UpdatePlan(ctx context.Context, id string, params *Upda
 
 // DeletePlan deletes (deactivates) a plan.
 func (s *BillingService) DeletePlan(ctx context.Context, id string) error {
-	return s.client.request(ctx, "DELETE", "/billing/plans/"+id, nil, nil)
+	return s.client.request(ctx, "DELETE", "/billing/v1/plans/"+id, nil, nil)
 }
 
 // ============================================================
@@ -124,7 +134,7 @@ type CreatePriceParams struct {
 // CreatePrice creates a new price for a plan.
 func (s *BillingService) CreatePrice(ctx context.Context, planID string, params *CreatePriceParams) (*Price, error) {
 	var price Price
-	err := s.client.request(ctx, "POST", "/billing/plans/"+planID+"/prices", params, &price)
+	err := s.client.request(ctx, "POST", "/billing/v1/plans/"+planID+"/prices", params, &price)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +150,7 @@ type PriceList struct {
 // ListPrices lists all prices for a plan.
 func (s *BillingService) ListPrices(ctx context.Context, planID string) (*PriceList, error) {
 	var list PriceList
-	err := s.client.request(ctx, "GET", "/billing/plans/"+planID+"/prices", nil, &list)
+	err := s.client.request(ctx, "GET", "/billing/v1/plans/"+planID+"/prices", nil, &list)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +159,7 @@ func (s *BillingService) ListPrices(ctx context.Context, planID string) (*PriceL
 
 // ArchivePrice archives a price.
 func (s *BillingService) ArchivePrice(ctx context.Context, planID, priceID string) error {
-	return s.client.request(ctx, "DELETE", "/billing/plans/"+planID+"/prices/"+priceID, nil, nil)
+	return s.client.request(ctx, "DELETE", "/billing/v1/plans/"+planID+"/prices/"+priceID, nil, nil)
 }
 
 // ============================================================
@@ -180,7 +190,7 @@ type CreateEntitlementParams struct {
 // CreateEntitlement creates an entitlement for a plan.
 func (s *BillingService) CreateEntitlement(ctx context.Context, planID string, params *CreateEntitlementParams) (*Entitlement, error) {
 	var entitlement Entitlement
-	err := s.client.request(ctx, "POST", "/billing/plans/"+planID+"/entitlements", params, &entitlement)
+	err := s.client.request(ctx, "POST", "/billing/v1/plans/"+planID+"/entitlements", params, &entitlement)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +206,7 @@ type EntitlementList struct {
 // ListEntitlements lists all entitlements for a plan.
 func (s *BillingService) ListEntitlements(ctx context.Context, planID string) (*EntitlementList, error) {
 	var list EntitlementList
-	err := s.client.request(ctx, "GET", "/billing/plans/"+planID+"/entitlements", nil, &list)
+	err := s.client.request(ctx, "GET", "/billing/v1/plans/"+planID+"/entitlements", nil, &list)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +215,7 @@ func (s *BillingService) ListEntitlements(ctx context.Context, planID string) (*
 
 // ArchiveEntitlement archives an entitlement.
 func (s *BillingService) ArchiveEntitlement(ctx context.Context, planID, entitlementID string) error {
-	return s.client.request(ctx, "DELETE", "/billing/plans/"+planID+"/entitlements/"+entitlementID, nil, nil)
+	return s.client.request(ctx, "DELETE", "/billing/v1/plans/"+planID+"/entitlements/"+entitlementID, nil, nil)
 }
 
 // ============================================================
@@ -235,17 +245,32 @@ type CreateCustomerParams struct {
 // CreateCustomer creates a new customer.
 func (s *BillingService) CreateCustomer(ctx context.Context, params *CreateCustomerParams) (*Customer, error) {
 	var customer Customer
-	err := s.client.request(ctx, "POST", "/billing/customers", params, &customer)
+	err := s.client.request(ctx, "POST", "/billing/v1/customers", params, &customer)
 	if err != nil {
 		return nil, err
 	}
 	return &customer, nil
 }
 
+// CreateCustomerForUser creates a billing customer for a user.
+// The customer's ExternalID is set to "user:{userID}" for cross-referencing.
+// Returns the customer ID.
+func (s *BillingService) CreateCustomerForUser(ctx context.Context, userID int, email, name string) (string, error) {
+	customer, err := s.CreateCustomer(ctx, &CreateCustomerParams{
+		Email:      email,
+		Name:       name,
+		ExternalID: fmt.Sprintf("user:%d", userID),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create billing customer for user: %w", err)
+	}
+	return customer.ID, nil
+}
+
 // GetCustomer retrieves a customer by ID.
 func (s *BillingService) GetCustomer(ctx context.Context, id string) (*Customer, error) {
 	var customer Customer
-	err := s.client.request(ctx, "GET", "/billing/customers/"+id, nil, &customer)
+	err := s.client.request(ctx, "GET", "/billing/v1/customers/"+id, nil, &customer)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +292,7 @@ type CustomerList struct {
 
 // ListCustomers lists all customers.
 func (s *BillingService) ListCustomers(ctx context.Context, params *ListCustomersParams) (*CustomerList, error) {
-	path := "/billing/customers"
+	path := "/billing/v1/customers"
 	if params != nil {
 		query := ""
 		if params.Limit > 0 {
@@ -303,7 +328,7 @@ type UpdateCustomerParams struct {
 // UpdateCustomer updates a customer.
 func (s *BillingService) UpdateCustomer(ctx context.Context, id string, params *UpdateCustomerParams) (*Customer, error) {
 	var customer Customer
-	err := s.client.request(ctx, "PATCH", "/billing/customers/"+id, params, &customer)
+	err := s.client.request(ctx, "PATCH", "/billing/v1/customers/"+id, params, &customer)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +337,7 @@ func (s *BillingService) UpdateCustomer(ctx context.Context, id string, params *
 
 // DeleteCustomer deletes a customer.
 func (s *BillingService) DeleteCustomer(ctx context.Context, id string) error {
-	return s.client.request(ctx, "DELETE", "/billing/customers/"+id, nil, nil)
+	return s.client.request(ctx, "DELETE", "/billing/v1/customers/"+id, nil, nil)
 }
 
 // ============================================================
@@ -335,7 +360,9 @@ type Subscription struct {
 // CreateSubscriptionParams are the parameters for creating a subscription.
 type CreateSubscriptionParams struct {
 	CustomerID string            `json:"customer_id"`
-	PriceID    string            `json:"price_id"`
+	PriceID    string            `json:"price_id,omitempty"`
+	PlanKey    string            `json:"plan_key,omitempty"`
+	PriceKey   string            `json:"price_key,omitempty"`
 	Quantity   int               `json:"quantity,omitempty"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
 }
@@ -343,17 +370,47 @@ type CreateSubscriptionParams struct {
 // CreateSubscription creates a new subscription.
 func (s *BillingService) CreateSubscription(ctx context.Context, params *CreateSubscriptionParams) (*Subscription, error) {
 	var subscription Subscription
-	err := s.client.request(ctx, "POST", "/billing/subscriptions", params, &subscription)
+	err := s.client.request(ctx, "POST", "/billing/v1/subscriptions", params, &subscription)
 	if err != nil {
 		return nil, err
 	}
 	return &subscription, nil
 }
 
+// CreateSubscriptionForWorkspace creates a free-tier subscription for a workspace.
+// Returns the subscription ID.
+func (s *BillingService) CreateSubscriptionForWorkspace(ctx context.Context, customerID, workspaceID string) (string, error) {
+	return s.createSubscriptionWithPlan(ctx, customerID, FreePlanKey, FreePriceKey)
+}
+
+// CreateSubscriptionForGuestWorkspace creates a guest-tier subscription (lower limits).
+// Returns the subscription ID.
+func (s *BillingService) CreateSubscriptionForGuestWorkspace(ctx context.Context, customerID, workspaceID string) (string, error) {
+	return s.createSubscriptionWithPlan(ctx, customerID, GuestPlanKey, GuestPriceKey)
+}
+
+// CreateSubscriptionForBasicPlan creates a basic paid subscription.
+// Returns the subscription ID.
+func (s *BillingService) CreateSubscriptionForBasicPlan(ctx context.Context, customerID string) (string, error) {
+	return s.createSubscriptionWithPlan(ctx, customerID, BasicPlanKey, BasicPriceKey)
+}
+
+func (s *BillingService) createSubscriptionWithPlan(ctx context.Context, customerID, planKey, priceKey string) (string, error) {
+	subscription, err := s.CreateSubscription(ctx, &CreateSubscriptionParams{
+		CustomerID: customerID,
+		PlanKey:    planKey,
+		PriceKey:   priceKey,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create subscription: %w", err)
+	}
+	return subscription.ID, nil
+}
+
 // GetSubscription retrieves a subscription by ID.
 func (s *BillingService) GetSubscription(ctx context.Context, id string) (*Subscription, error) {
 	var subscription Subscription
-	err := s.client.request(ctx, "GET", "/billing/subscriptions/"+id, nil, &subscription)
+	err := s.client.request(ctx, "GET", "/billing/v1/subscriptions/"+id, nil, &subscription)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +420,7 @@ func (s *BillingService) GetSubscription(ctx context.Context, id string) (*Subsc
 // CancelSubscription cancels a subscription.
 func (s *BillingService) CancelSubscription(ctx context.Context, id string) (*Subscription, error) {
 	var subscription Subscription
-	err := s.client.request(ctx, "DELETE", "/billing/subscriptions/"+id, nil, &subscription)
+	err := s.client.request(ctx, "DELETE", "/billing/v1/subscriptions/"+id, nil, &subscription)
 	if err != nil {
 		return nil, err
 	}
@@ -371,13 +428,39 @@ func (s *BillingService) CancelSubscription(ctx context.Context, id string) (*Su
 }
 
 // ============================================================
-// ENTITLEMENTS
+// CHECKOUT
+// ============================================================
+
+// CheckoutLink represents a billing checkout link.
+type CheckoutLink struct {
+	CheckoutURL string    `json:"checkout_url"`
+	Token       string    `json:"token"`
+	ExpiresAt   time.Time `json:"expires_at"`
+}
+
+// CreateCheckoutLinkParams are the parameters for creating a checkout link.
+type CreateCheckoutLinkParams struct {
+	ExpiresInHours int `json:"expires_in_hours,omitempty"`
+}
+
+// CreateCheckoutLink generates a checkout link for a subscription.
+func (s *BillingService) CreateCheckoutLink(ctx context.Context, subscriptionID string, params *CreateCheckoutLinkParams) (*CheckoutLink, error) {
+	var link CheckoutLink
+	err := s.client.request(ctx, "POST", "/billing/v1/subscriptions/"+subscriptionID+"/checkout-link", params, &link)
+	if err != nil {
+		return nil, err
+	}
+	return &link, nil
+}
+
+// ============================================================
+// ENTITLEMENT CHECK
 // ============================================================
 
 // EntitlementCheck is the result of an entitlement check.
 type EntitlementCheck struct {
 	HasAccess bool   `json:"has_access"`
-	Value     string `json:"value,omitempty"`
+	Value     any    `json:"value,omitempty"`
 	PlanName  string `json:"plan_name,omitempty"`
 }
 
@@ -390,11 +473,19 @@ type CheckEntitlementParams struct {
 // CheckEntitlement checks if a customer has access to a feature.
 func (s *BillingService) CheckEntitlement(ctx context.Context, params *CheckEntitlementParams) (*EntitlementCheck, error) {
 	var result EntitlementCheck
-	err := s.client.request(ctx, "POST", "/billing/entitlements/check", params, &result)
+	err := s.client.request(ctx, "POST", "/billing/v1/entitlements/check", params, &result)
 	if err != nil {
 		return nil, err
 	}
 	return &result, nil
+}
+
+// CheckEntitlementByKey is a convenience method that checks an entitlement by customer ID and key.
+func (s *BillingService) CheckEntitlementByKey(ctx context.Context, customerID, entitlementKey string) (*EntitlementCheck, error) {
+	return s.CheckEntitlement(ctx, &CheckEntitlementParams{
+		CustomerID:     customerID,
+		EntitlementKey: entitlementKey,
+	})
 }
 
 // ============================================================
@@ -404,14 +495,19 @@ func (s *BillingService) CheckEntitlement(ctx context.Context, params *CheckEnti
 // UsageRecord represents a recorded usage event.
 type UsageRecord struct {
 	ID             string    `json:"id"`
-	SubscriptionID string    `json:"subscription_id"`
+	CustomerID     string    `json:"customer_id,omitempty"`
+	SubscriptionID string    `json:"subscription_id,omitempty"`
+	ProductKey     string    `json:"product_key"`
 	Quantity       int       `json:"quantity"`
 	Timestamp      time.Time `json:"timestamp"`
+	IdempotencyKey string    `json:"idempotency_key,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // RecordUsageParams are the parameters for recording usage.
 type RecordUsageParams struct {
 	SubscriptionID string     `json:"subscription_id"`
+	ProductKey     string     `json:"product_key,omitempty"`
 	Quantity       int        `json:"quantity"`
 	Timestamp      *time.Time `json:"timestamp,omitempty"`
 	IdempotencyKey string     `json:"idempotency_key,omitempty"`
@@ -420,30 +516,45 @@ type RecordUsageParams struct {
 // RecordUsage records usage for a metered subscription.
 func (s *BillingService) RecordUsage(ctx context.Context, params *RecordUsageParams) (*UsageRecord, error) {
 	var record UsageRecord
-	err := s.client.request(ctx, "POST", "/billing/usage", params, &record)
+	err := s.client.request(ctx, "POST", "/billing/v1/usage", params, &record)
 	if err != nil {
 		return nil, err
 	}
 	return &record, nil
 }
 
+// RecordUsageByKey is a convenience method for recording usage with individual parameters.
+func (s *BillingService) RecordUsageByKey(ctx context.Context, subscriptionID, productKey string, quantity int, idempotencyKey string) (*UsageRecord, error) {
+	return s.RecordUsage(ctx, &RecordUsageParams{
+		SubscriptionID: subscriptionID,
+		ProductKey:     productKey,
+		Quantity:       quantity,
+		IdempotencyKey: idempotencyKey,
+	})
+}
+
 // UsageSummary is an aggregated usage summary.
 type UsageSummary struct {
-	SubscriptionID string    `json:"subscription_id"`
-	PeriodStart    time.Time `json:"period_start"`
-	PeriodEnd      time.Time `json:"period_end"`
-	TotalUsage     int       `json:"total_usage"`
-	Records        int       `json:"records"`
+	SubscriptionID string `json:"subscription_id"`
+	ProductKey     string `json:"product_key"`
+	TotalUsage     int    `json:"total_usage"`
+	RecordCount    int    `json:"record_count"`
+	PeriodStart    string `json:"period_start"`
+	PeriodEnd      string `json:"period_end"`
 }
 
 // GetUsageSummaryParams are the parameters for getting a usage summary.
 type GetUsageSummaryParams struct {
-	SubscriptionID string `json:"subscription_id"`
+	SubscriptionID string
+	ProductKey     string
 }
 
 // GetUsageSummary gets aggregated usage for a subscription.
 func (s *BillingService) GetUsageSummary(ctx context.Context, params *GetUsageSummaryParams) (*UsageSummary, error) {
-	path := "/billing/usage?subscription_id=" + params.SubscriptionID
+	path := "/billing/v1/usage?subscription_id=" + params.SubscriptionID
+	if params.ProductKey != "" {
+		path += "&product_key=" + params.ProductKey
+	}
 
 	var summary UsageSummary
 	err := s.client.request(ctx, "GET", path, nil, &summary)
@@ -451,6 +562,14 @@ func (s *BillingService) GetUsageSummary(ctx context.Context, params *GetUsageSu
 		return nil, err
 	}
 	return &summary, nil
+}
+
+// GetUsageSummaryByKey is a convenience method for getting usage with individual parameters.
+func (s *BillingService) GetUsageSummaryByKey(ctx context.Context, subscriptionID, productKey string) (*UsageSummary, error) {
+	return s.GetUsageSummary(ctx, &GetUsageSummaryParams{
+		SubscriptionID: subscriptionID,
+		ProductKey:     productKey,
+	})
 }
 
 // ============================================================
@@ -472,7 +591,7 @@ type CreatePortalLinkParams struct {
 // CreatePortalLink creates a portal link for a customer.
 func (s *BillingService) CreatePortalLink(ctx context.Context, customerID string, params *CreatePortalLinkParams) (*PortalLink, error) {
 	var link PortalLink
-	err := s.client.request(ctx, "POST", "/billing/customers/"+customerID+"/portal-link", params, &link)
+	err := s.client.request(ctx, "POST", "/billing/v1/customers/"+customerID+"/portal-link", params, &link)
 	if err != nil {
 		return nil, err
 	}
