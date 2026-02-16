@@ -608,3 +608,86 @@ func (s *BillingService) CreatePortalLink(ctx context.Context, customerID string
 	}
 	return &link, nil
 }
+
+// ============================================================
+// PAYMENT CONFIGS
+// ============================================================
+
+// PaymentConfig represents a payment configuration for a workspace.
+type PaymentConfig struct {
+	ID           string         `json:"id"`
+	Provider     string         `json:"provider"`
+	ConnectionID string         `json:"connection_id"`
+	IsDefault    bool           `json:"is_default"`
+	PaymentMode  string         `json:"payment_mode"`
+	Settings     map[string]any `json:"settings,omitempty"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at,omitempty"`
+}
+
+// CreatePaymentConfigParams are the parameters for creating a payment config.
+type CreatePaymentConfigParams struct {
+	Provider     string         `json:"provider"`
+	ConnectionID string         `json:"connection_id"`
+	IsDefault    bool           `json:"is_default,omitempty"`
+	Settings     map[string]any `json:"settings,omitempty"`
+}
+
+// CreatePaymentConfig creates a new payment configuration.
+func (s *BillingService) CreatePaymentConfig(ctx context.Context, params *CreatePaymentConfigParams) (*PaymentConfig, error) {
+	var config PaymentConfig
+	err := s.client.request(ctx, "POST", "/billing/v1/payment-configs", params, &config)
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+// PaymentConfigList is a list of payment configs.
+type PaymentConfigList struct {
+	PaymentConfigs []PaymentConfig `json:"payment_configs"`
+	Total          int             `json:"total"`
+}
+
+// ListPaymentConfigs lists all payment configurations for the workspace.
+func (s *BillingService) ListPaymentConfigs(ctx context.Context) (*PaymentConfigList, error) {
+	var list PaymentConfigList
+	err := s.client.request(ctx, "GET", "/billing/v1/payment-configs", nil, &list)
+	if err != nil {
+		return nil, err
+	}
+	return &list, nil
+}
+
+// GetPaymentConfig retrieves a payment config by ID.
+func (s *BillingService) GetPaymentConfig(ctx context.Context, id string) (*PaymentConfig, error) {
+	var config PaymentConfig
+	err := s.client.request(ctx, "GET", "/billing/v1/payment-configs/"+id, nil, &config)
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+// UpdatePaymentConfigParams are the parameters for updating a payment config.
+type UpdatePaymentConfigParams struct {
+	Provider     *string        `json:"provider,omitempty"`
+	ConnectionID *string        `json:"connection_id,omitempty"`
+	IsDefault    *bool          `json:"is_default,omitempty"`
+	Settings     map[string]any `json:"settings,omitempty"`
+}
+
+// UpdatePaymentConfig updates a payment configuration.
+func (s *BillingService) UpdatePaymentConfig(ctx context.Context, id string, params *UpdatePaymentConfigParams) (*PaymentConfig, error) {
+	var config PaymentConfig
+	err := s.client.request(ctx, "PATCH", "/billing/v1/payment-configs/"+id, params, &config)
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+// DeletePaymentConfig deletes a payment configuration.
+func (s *BillingService) DeletePaymentConfig(ctx context.Context, id string) error {
+	return s.client.request(ctx, "DELETE", "/billing/v1/payment-configs/"+id, nil, nil)
+}
