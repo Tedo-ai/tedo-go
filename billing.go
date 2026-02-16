@@ -359,12 +359,13 @@ type Subscription struct {
 
 // CreateSubscriptionParams are the parameters for creating a subscription.
 type CreateSubscriptionParams struct {
-	CustomerID string            `json:"customer_id"`
-	PriceID    string            `json:"price_id,omitempty"`
-	PlanKey    string            `json:"plan_key,omitempty"`
-	PriceKey   string            `json:"price_key,omitempty"`
-	Quantity   int               `json:"quantity,omitempty"`
-	Metadata   map[string]string `json:"metadata,omitempty"`
+	CustomerID    string            `json:"customer_id"`
+	PriceID       string            `json:"price_id,omitempty"`
+	PlanKey       string            `json:"plan_key,omitempty"`
+	PriceKey      string            `json:"price_key,omitempty"`
+	InitialStatus string            `json:"initial_status,omitempty"` // "incomplete" to defer activation until payment
+	Quantity      int               `json:"quantity,omitempty"`
+	Metadata      map[string]string `json:"metadata,omitempty"`
 }
 
 // CreateSubscription creates a new subscription.
@@ -390,9 +391,19 @@ func (s *BillingService) CreateSubscriptionForGuestWorkspace(ctx context.Context
 }
 
 // CreateSubscriptionForBasicPlan creates a basic paid subscription.
+// The subscription starts as "incomplete" and only becomes active after payment succeeds.
 // Returns the subscription ID.
 func (s *BillingService) CreateSubscriptionForBasicPlan(ctx context.Context, customerID string) (string, error) {
-	return s.createSubscriptionWithPlan(ctx, customerID, BasicPlanKey, BasicPriceKey)
+	subscription, err := s.CreateSubscription(ctx, &CreateSubscriptionParams{
+		CustomerID:    customerID,
+		PlanKey:       BasicPlanKey,
+		PriceKey:      BasicPriceKey,
+		InitialStatus: "incomplete",
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create subscription: %w", err)
+	}
+	return subscription.ID, nil
 }
 
 func (s *BillingService) createSubscriptionWithPlan(ctx context.Context, customerID, planKey, priceKey string) (string, error) {
