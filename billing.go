@@ -451,7 +451,8 @@ type CheckoutLink struct {
 
 // CreateCheckoutLinkParams are the parameters for creating a checkout link.
 type CreateCheckoutLinkParams struct {
-	ExpiresInHours int `json:"expires_in_hours,omitempty"`
+	ExpiresInHours   int `json:"expires_in_hours,omitempty"`
+	ExpiresInMinutes int `json:"expires_in_minutes,omitempty"`
 }
 
 // CreateCheckoutLink generates a checkout link for a subscription.
