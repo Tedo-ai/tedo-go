@@ -252,9 +252,23 @@ func (s *BillingService) CreateCustomer(ctx context.Context, params *CreateCusto
 	return &customer, nil
 }
 
-// CreateCustomerForUser creates a billing customer for a user.
-// The customer's ExternalID is set to "user:{userID}" for cross-referencing.
+// CreateCustomerForWorkspace creates a billing customer for a workspace.
+// The customer's ExternalID is set to "workspace:{workspaceID}" for cross-referencing.
 // Returns the customer ID.
+func (s *BillingService) CreateCustomerForWorkspace(ctx context.Context, workspaceID, email, name string) (string, error) {
+	customer, err := s.CreateCustomer(ctx, &CreateCustomerParams{
+		Email:      email,
+		Name:       name,
+		ExternalID: fmt.Sprintf("workspace:%s", workspaceID),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create billing customer for workspace: %w", err)
+	}
+	return customer.ID, nil
+}
+
+// Deprecated: CreateCustomerForUser creates a billing customer with a user-scoped ExternalID.
+// Use CreateCustomerForWorkspace instead — billing is workspace-scoped.
 func (s *BillingService) CreateCustomerForUser(ctx context.Context, userID int, email, name string) (string, error) {
 	customer, err := s.CreateCustomer(ctx, &CreateCustomerParams{
 		Email:      email,
