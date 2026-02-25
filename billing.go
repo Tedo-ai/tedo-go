@@ -355,6 +355,11 @@ type Subscription struct {
 	CanceledAt *time.Time        `json:"canceled_at,omitempty"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
 	CreatedAt  time.Time         `json:"created_at"`
+	// Plan/price details (populated by GetSubscription, GetCustomer)
+	PlanID   string `json:"plan_id,omitempty"`
+	PlanKey  string `json:"plan_key,omitempty"`
+	PlanName string `json:"plan_name,omitempty"`
+	PriceKey string `json:"price_key,omitempty"`
 }
 
 // CreateSubscriptionParams are the parameters for creating a subscription.
@@ -416,6 +421,45 @@ func (s *BillingService) createSubscriptionWithPlan(ctx context.Context, custome
 		return "", fmt.Errorf("failed to create subscription: %w", err)
 	}
 	return subscription.ID, nil
+}
+
+// ListSubscriptionsParams are the parameters for listing subscriptions.
+type ListSubscriptionsParams struct {
+	CustomerID string `json:"customer_id,omitempty"`
+	Status     string `json:"status,omitempty"` // active, canceled, past_due, incomplete
+}
+
+// SubscriptionList is a list of subscriptions.
+type SubscriptionList struct {
+	Subscriptions []Subscription `json:"subscriptions"`
+	Total         int            `json:"total"`
+}
+
+// ListSubscriptions lists subscriptions with optional filters.
+func (s *BillingService) ListSubscriptions(ctx context.Context, params *ListSubscriptionsParams) (*SubscriptionList, error) {
+	path := "/billing/v1/subscriptions"
+	if params != nil {
+		query := ""
+		if params.CustomerID != "" {
+			query += "customer_id=" + params.CustomerID
+		}
+		if params.Status != "" {
+			if query != "" {
+				query += "&"
+			}
+			query += "status=" + params.Status
+		}
+		if query != "" {
+			path += "?" + query
+		}
+	}
+
+	var list SubscriptionList
+	err := s.client.request(ctx, "GET", path, nil, &list)
+	if err != nil {
+		return nil, err
+	}
+	return &list, nil
 }
 
 // GetSubscription retrieves a subscription by ID.
