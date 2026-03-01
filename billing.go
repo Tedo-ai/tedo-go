@@ -228,6 +228,7 @@ type Customer struct {
 	Email         string            `json:"email"`
 	Name          string            `json:"name,omitempty"`
 	ExternalID    string            `json:"external_id,omitempty"`
+	Internal      bool              `json:"internal"`
 	Metadata      map[string]string `json:"metadata,omitempty"`
 	Subscriptions []Subscription    `json:"subscriptions,omitempty"`
 	CreatedAt     time.Time         `json:"created_at"`
@@ -239,6 +240,7 @@ type CreateCustomerParams struct {
 	Email      string            `json:"email"`
 	Name       string            `json:"name,omitempty"`
 	ExternalID string            `json:"external_id,omitempty"`
+	Internal   bool              `json:"internal,omitempty"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
@@ -336,6 +338,7 @@ type UpdateCustomerParams struct {
 	Email      *string           `json:"email,omitempty"`
 	Name       *string           `json:"name,omitempty"`
 	ExternalID *string           `json:"external_id,omitempty"`
+	Internal   *bool             `json:"internal,omitempty"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
 }
 
