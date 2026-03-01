@@ -750,3 +750,106 @@ func (s *BillingService) UpdatePaymentConfig(ctx context.Context, id string, par
 func (s *BillingService) DeletePaymentConfig(ctx context.Context, id string) error {
 	return s.client.request(ctx, "DELETE", "/billing/v1/payment-configs/"+id, nil, nil)
 }
+
+// ============================================================
+// INVOICES
+// ============================================================
+
+// Invoice represents a billing invoice.
+type Invoice struct {
+	ID             string            `json:"id"`
+	WorkspaceID    string            `json:"workspace_id"`
+	CustomerID     string            `json:"customer_id"`
+	SubscriptionID *string           `json:"subscription_id,omitempty"`
+	Number         *string           `json:"number,omitempty"`
+	Status         string            `json:"status"` // draft, open, paid, void, unpaid
+	Currency       string            `json:"currency"`
+	Subtotal       int               `json:"subtotal"`
+	Tax            int               `json:"tax"`
+	Total          int               `json:"total"`
+	AmountPaid     int               `json:"amount_paid"`
+	AmountDue      int               `json:"amount_due"`
+	Lines          []InvoiceLineItem `json:"lines,omitempty"`
+	Notes          *string           `json:"notes,omitempty"`
+	Metadata       map[string]any    `json:"metadata,omitempty"`
+	CreatedAt      time.Time         `json:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at"`
+}
+
+// InvoiceLineItem represents a line item in an invoice.
+type InvoiceLineItem struct {
+	Description string `json:"description"`
+	Quantity    int    `json:"quantity"`
+	UnitAmount  int    `json:"unit_amount"`
+	Amount      int    `json:"amount"`
+	PriceID     string `json:"price_id,omitempty"`
+	PlanName    string `json:"plan_name,omitempty"`
+}
+
+// CreateInvoiceParams are the parameters for creating a standalone invoice.
+type CreateInvoiceParams struct {
+	CustomerID string            `json:"customer_id"`
+	Currency   string            `json:"currency"`
+	Lines      []InvoiceLineItem `json:"lines"`
+	Notes      *string           `json:"notes,omitempty"`
+	Metadata   map[string]any    `json:"metadata,omitempty"`
+}
+
+// CreateInvoice creates a standalone invoice (not tied to a subscription).
+func (s *BillingService) CreateInvoice(ctx context.Context, params *CreateInvoiceParams) (*Invoice, error) {
+	var invoice Invoice
+	err := s.client.request(ctx, "POST", "/billing/v1/invoices", params, &invoice)
+	if err != nil {
+		return nil, err
+	}
+	return &invoice, nil
+}
+
+// GetInvoice retrieves an invoice by ID.
+func (s *BillingService) GetInvoice(ctx context.Context, id string) (*Invoice, error) {
+	var invoice Invoice
+	err := s.client.request(ctx, "GET", "/billing/v1/invoices/"+id, nil, &invoice)
+	if err != nil {
+		return nil, err
+	}
+	return &invoice, nil
+}
+
+// InvoiceCheckoutResult is the result of creating a checkout for an invoice.
+type InvoiceCheckoutResult struct {
+	PaymentID   string `json:"payment_id"`
+	InvoiceID   string `json:"invoice_id"`
+	CheckoutURL string `json:"checkout_url"`
+}
+
+// CreateInvoiceCheckoutParams are the parameters for creating an invoice checkout.
+type CreateInvoiceCheckoutParams struct {
+	RedirectURL string `json:"redirect_url,omitempty"`
+}
+
+// CreateInvoiceCheckout creates a checkout session for a standalone invoice.
+func (s *BillingService) CreateInvoiceCheckout(ctx context.Context, invoiceID string, params *CreateInvoiceCheckoutParams) (*InvoiceCheckoutResult, error) {
+	var result InvoiceCheckoutResult
+	err := s.client.request(ctx, "POST", "/billing/v1/invoices/"+invoiceID+"/checkout", params, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// PaymentStatus represents the status of a billing payment.
+type PaymentStatus struct {
+	ID        string  `json:"id"`
+	Status    string  `json:"status"`
+	InvoiceID *string `json:"invoice_id,omitempty"`
+}
+
+// GetPaymentStatus checks the status of a payment, actively polling the provider if still pending.
+func (s *BillingService) GetPaymentStatus(ctx context.Context, paymentID string) (*PaymentStatus, error) {
+	var result PaymentStatus
+	err := s.client.request(ctx, "GET", "/billing/v1/payments/"+paymentID+"/status", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
