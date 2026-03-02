@@ -798,6 +798,52 @@ type CreateInvoiceParams struct {
 	Metadata   map[string]any    `json:"metadata,omitempty"`
 }
 
+// ListInvoicesParams are the parameters for listing invoices.
+type ListInvoicesParams struct {
+	CustomerID string `json:"customer_id"`
+	Limit      int    `json:"limit,omitempty"`
+	Offset     int    `json:"offset,omitempty"`
+}
+
+// InvoiceList is a list of invoices.
+type InvoiceList struct {
+	Invoices []Invoice `json:"invoices"`
+	Total    int       `json:"total"`
+}
+
+// ListInvoices lists invoices for a customer.
+func (s *BillingService) ListInvoices(ctx context.Context, params *ListInvoicesParams) (*InvoiceList, error) {
+	path := "/billing/v1/invoices"
+	if params != nil {
+		query := ""
+		if params.CustomerID != "" {
+			query += "customer_id=" + params.CustomerID
+		}
+		if params.Limit > 0 {
+			if query != "" {
+				query += "&"
+			}
+			query += fmt.Sprintf("limit=%d", params.Limit)
+		}
+		if params.Offset > 0 {
+			if query != "" {
+				query += "&"
+			}
+			query += fmt.Sprintf("offset=%d", params.Offset)
+		}
+		if query != "" {
+			path += "?" + query
+		}
+	}
+
+	var list InvoiceList
+	err := s.client.request(ctx, "GET", path, nil, &list)
+	if err != nil {
+		return nil, err
+	}
+	return &list, nil
+}
+
 // CreateInvoice creates a standalone invoice (not tied to a subscription).
 func (s *BillingService) CreateInvoice(ctx context.Context, params *CreateInvoiceParams) (*Invoice, error) {
 	var invoice Invoice
