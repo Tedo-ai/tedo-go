@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://api.tedo.ai/v1"
+	defaultBaseURL = "https://api.tedo.ai"
 	defaultTimeout = 30 * time.Second
 )
 
@@ -32,6 +32,7 @@ type Client struct {
 
 	// Services
 	Billing *BillingService
+	Storage *StorageService
 }
 
 // NewClient creates a new Tedo API client.
@@ -46,6 +47,7 @@ func NewClient(apiKey string) *Client {
 
 	// Initialize services
 	c.Billing = &BillingService{client: c}
+	c.Storage = &StorageService{client: c}
 
 	return c
 }
