@@ -32,6 +32,7 @@ type Client struct {
 
 	// Services
 	Billing *BillingService
+	Sales   *SalesService
 	Storage *StorageService
 }
 
@@ -47,6 +48,7 @@ func NewClient(apiKey string) *Client {
 
 	// Initialize services
 	c.Billing = &BillingService{client: c}
+	c.Sales = &SalesService{client: c}
 	c.Storage = &StorageService{client: c}
 
 	return c
