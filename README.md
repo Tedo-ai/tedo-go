@@ -24,7 +24,7 @@ import (
 func main() {
     client := tedo.NewClient("tedo_live_xxx")
 
-    // Create a customer
+    // Billing: create a customer
     customer, err := client.Billing.CreateCustomer(context.Background(), &tedo.CreateCustomerParams{
         Email: "user@example.com",
         Name:  "Acme Corp",
@@ -34,25 +34,23 @@ func main() {
     }
     fmt.Printf("Created customer: %s\n", customer.ID)
 
-    // Create a subscription
-    subscription, err := client.Billing.CreateSubscription(context.Background(), &tedo.CreateSubscriptionParams{
-        CustomerID: customer.ID,
-        PriceID:    "price_xxx",
+    // Sales: create a pipeline and a lead
+    pipeline, err := client.Sales.CreatePipeline(context.Background(), &tedo.CreatePipelineParams{
+        Name:         "Inbound",
+        ResourceType: tedo.ResourceTypeLead,
     })
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Printf("Created subscription: %s\n", subscription.ID)
 
-    // Check entitlement
-    result, err := client.Billing.CheckEntitlement(context.Background(), &tedo.CheckEntitlementParams{
-        CustomerID:     customer.ID,
-        EntitlementKey: "api_access",
+    lead, err := client.Sales.CreateLead(context.Background(), &tedo.CreateLeadParams{
+        Label:      "Acme Corp",
+        PipelineID: pipeline.ID,
     })
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Printf("Has access: %v\n", result.HasAccess)
+    fmt.Printf("Created lead: %s\n", lead.ID)
 }
 ```
 
@@ -117,7 +115,7 @@ for {
 }
 ```
 
-## Available Services
+## Services
 
 ### Billing
 
@@ -134,6 +132,168 @@ for {
 | `CheckEntitlement` | Check feature access |
 | `RecordUsage` | Record metered usage |
 | `GetUsageSummary` | Get usage summary |
+
+### Sales
+
+The Sales service covers pipelines, stages, leads, deals, activities, notes, and contacts.
+
+#### Constants
+
+**Activity types** (`ActivityType*`):
+
+| Constant | Value |
+|----------|-------|
+| `ActivityTypeTask` | `"task"` |
+| `ActivityTypeCall` | `"call"` |
+| `ActivityTypeEmail` | `"email"` |
+| `ActivityTypeMeeting` | `"meeting"` |
+| `ActivityTypeDeadline` | `"deadline"` |
+
+**Pipeline resource types** (`ResourceType*`):
+
+| Constant | Value |
+|----------|-------|
+| `ResourceTypeLead` | `"lead"` |
+| `ResourceTypeDeal` | `"deal"` |
+
+**Stage outcomes** (`Outcome*`):
+
+| Constant | Value |
+|----------|-------|
+| `OutcomePositive` | `"positive"` |
+| `OutcomeNegative` | `"negative"` |
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `CreatePipeline` | Create a pipeline for leads or deals |
+| `GetPipeline` | Get a pipeline by ID |
+| `ListPipelines` | List all pipelines |
+| `UpdatePipeline` | Update a pipeline |
+| `DeletePipeline` | Delete a pipeline |
+| `CreateStage` | Create a stage in a pipeline |
+| `GetStage` | Get a stage by ID |
+| `ListStages` | List stages for a pipeline |
+| `UpdateStage` | Update a stage |
+| `DeleteStage` | Delete a stage |
+| `CreateLead` | Create a new lead |
+| `GetLead` | Get a lead by ID |
+| `ListLeads` | List leads, optionally filtered by pipeline |
+| `UpdateLead` | Update a lead |
+| `DeleteLead` | Delete a lead |
+| `MoveLeadStage` | Move a lead to a different stage |
+| `ConvertLeadToDeal` | Convert a lead into a deal |
+| `CreateDeal` | Create a new deal |
+| `GetDeal` | Get a deal by ID |
+| `ListDeals` | List deals, optionally filtered by pipeline |
+| `UpdateDeal` | Update a deal |
+| `DeleteDeal` | Delete a deal |
+| `MoveDealStage` | Move a deal to a different stage |
+| `CreateActivity` | Create an activity linked to entities |
+| `GetActivity` | Get an activity by ID |
+| `ListActivities` | List activities, optionally filtered by type or completion |
+| `UpdateActivity` | Update an activity |
+| `DeleteActivity` | Delete an activity |
+| `CompleteActivity` | Mark an activity as completed or uncompleted |
+| `CreateSalesNote` | Create a note linked to sales entities |
+| `GetSalesNote` | Get a note by ID |
+| `ListSalesNotes` | List all notes |
+| `UpdateSalesNote` | Update a note |
+| `DeleteSalesNote` | Delete a note |
+| `CreateContactBase` | Create a contact base |
+| `GetContactBase` | Get a contact base by ID |
+| `ListContactBases` | List all contact bases |
+| `CreatePerson` | Create a person in a contact base |
+| `GetPerson` | Get a person by ID |
+| `ListPersons` | List persons in a contact base |
+| `UpdatePerson` | Update a person |
+| `DeletePerson` | Delete a person |
+| `CreateOrganization` | Create an organization in a contact base |
+| `GetOrganization` | Get an organization by ID |
+| `ListOrganizations` | List organizations in a contact base |
+| `UpdateOrganization` | Update an organization |
+| `DeleteOrganization` | Delete an organization |
+
+#### Examples
+
+**Create a pipeline with stages:**
+
+```go
+pipeline, err := client.Sales.CreatePipeline(ctx, &tedo.CreatePipelineParams{
+    Name:         "Sales",
+    ResourceType: tedo.ResourceTypeDeal,
+})
+
+outcome := tedo.OutcomePositive
+client.Sales.CreateStage(ctx, pipeline.ID, &tedo.CreateStageParams{
+    Name:       "Closed Won",
+    Position:   3,
+    IsTerminal: true,
+    Outcome:    &outcome,
+})
+```
+
+**Manage leads:**
+
+```go
+lead, err := client.Sales.CreateLead(ctx, &tedo.CreateLeadParams{
+    Label:      "Acme Corp",
+    PipelineID: pipeline.ID,
+    StageID:    stage.ID,
+})
+
+// Move to next stage
+lead, err = client.Sales.MoveLeadStage(ctx, lead.ID, nextStage.ID)
+
+// Convert to deal
+deal, err := client.Sales.ConvertLeadToDeal(ctx, lead.ID, &tedo.ConvertLeadParams{
+    DealPipelineID: dealPipeline.ID,
+    DealStageID:    dealStage.ID,
+    DealLabel:      "Acme Corp - Enterprise",
+})
+```
+
+**Create activities with links:**
+
+Use the link helpers to attach an activity to one or more sales entities:
+
+```go
+activity, err := client.Sales.CreateActivity(ctx, &tedo.CreateActivityParams{
+    Type:    tedo.ActivityTypeCall,
+    Subject: "Discovery call",
+    Links: []tedo.ActivityLink{
+        tedo.LeadLink(lead.ID),           // primary link
+        tedo.PersonLink(person.ID),        // secondary link
+        tedo.OrganizationLink(org.ID),     // secondary link
+    },
+})
+
+// Mark as done
+client.Sales.CompleteActivity(ctx, activity.ID, true)
+```
+
+Available link helpers: `LeadLink`, `DealLink`, `PersonLink`, `OrganizationLink`.
+For notes: `LeadNoteLink`, `DealNoteLink`, `PersonNoteLink`, `OrganizationNoteLink`.
+
+**Contacts:**
+
+```go
+base, _ := client.Sales.CreateContactBase(ctx, &tedo.CreateContactBaseParams{
+    Name: "Main",
+})
+
+person, _ := client.Sales.CreatePerson(ctx, base.ID, &tedo.CreatePersonParams{
+    FirstName: "Jane",
+    LastName:  "Smith",
+    Email:     "jane@acme.com",
+})
+
+org, _ := client.Sales.CreateOrganization(ctx, base.ID, &tedo.CreateOrganizationParams{
+    Name:    "Acme Corp",
+    Website: ptr("https://acme.com"),
+})
+```
 
 ## License
 
