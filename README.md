@@ -201,7 +201,6 @@ The Sales service covers pipelines, stages, leads, deals, activities, notes, and
 | `ListSalesNotes` | List all notes |
 | `UpdateSalesNote` | Update a note |
 | `DeleteSalesNote` | Delete a note |
-| `CreateContactBase` | Create a contact base |
 | `GetContactBase` | Get a contact base by ID |
 | `ListContactBases` | List all contact bases |
 | `CreatePerson` | Create a person in a contact base |
@@ -279,11 +278,11 @@ For notes: `LeadNoteLink`, `DealNoteLink`, `PersonNoteLink`, `OrganizationNoteLi
 **Contacts:**
 
 ```go
-base, _ := client.Sales.CreateContactBase(ctx, &tedo.CreateContactBaseParams{
-    Name: "Main",
-})
+// List contact bases (each workspace has a default one)
+bases, _ := client.Sales.ListContactBases(ctx)
+baseID := bases.ContactBases[0].ID
 
-person, _ := client.Sales.CreatePerson(ctx, base.ID, &tedo.CreatePersonParams{
+person, _ := client.Sales.CreatePerson(ctx, baseID, &tedo.CreatePersonParams{
     FirstName: "Jane",
     LastName:  "Smith",
     Email:     "jane@acme.com",

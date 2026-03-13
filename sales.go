@@ -725,11 +725,6 @@ type ContactBaseList struct {
 	Total        int           `json:"total"`
 }
 
-// CreateContactBaseParams are the parameters for creating a contact base.
-type CreateContactBaseParams struct {
-	Name string `json:"name"`
-}
-
 // ListContactBases lists all contact bases.
 func (s *SalesService) ListContactBases(ctx context.Context) (*ContactBaseList, error) {
 	var list ContactBaseList
@@ -744,16 +739,6 @@ func (s *SalesService) ListContactBases(ctx context.Context) (*ContactBaseList, 
 func (s *SalesService) GetContactBase(ctx context.Context, id string) (*ContactBase, error) {
 	var cb ContactBase
 	err := s.client.request(ctx, "GET", "/sales/v1/contact-bases/"+id, nil, &cb)
-	if err != nil {
-		return nil, err
-	}
-	return &cb, nil
-}
-
-// CreateContactBase creates a new contact base.
-func (s *SalesService) CreateContactBase(ctx context.Context, params *CreateContactBaseParams) (*ContactBase, error) {
-	var cb ContactBase
-	err := s.client.request(ctx, "POST", "/sales/v1/contact-bases", params, &cb)
 	if err != nil {
 		return nil, err
 	}
