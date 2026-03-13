@@ -201,6 +201,7 @@ The Sales service covers pipelines, stages, leads, deals, activities, notes, and
 | `ListSalesNotes` | List all notes |
 | `UpdateSalesNote` | Update a note |
 | `DeleteSalesNote` | Delete a note |
+| `CreateContactBase` | Create a new contact base |
 | `GetContactBase` | Get a contact base by ID |
 | `ListContactBases` | List all contact bases |
 | `CreatePerson` | Create a person in a contact base |
