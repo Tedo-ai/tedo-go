@@ -269,20 +269,6 @@ func (s *BillingService) CreateCustomerForWorkspace(ctx context.Context, workspa
 	return customer.ID, nil
 }
 
-// Deprecated: CreateCustomerForUser creates a billing customer with a user-scoped ExternalID.
-// Use CreateCustomerForWorkspace instead — billing is workspace-scoped.
-func (s *BillingService) CreateCustomerForUser(ctx context.Context, userID int, email, name string) (string, error) {
-	customer, err := s.CreateCustomer(ctx, &CreateCustomerParams{
-		Email:      email,
-		Name:       name,
-		ExternalID: fmt.Sprintf("user:%d", userID),
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to create billing customer for user: %w", err)
-	}
-	return customer.ID, nil
-}
-
 // GetCustomer retrieves a customer by ID.
 func (s *BillingService) GetCustomer(ctx context.Context, id string) (*Customer, error) {
 	var customer Customer
