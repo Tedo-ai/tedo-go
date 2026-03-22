@@ -741,32 +741,32 @@ func (s *BillingService) DeletePaymentConfig(ctx context.Context, id string) err
 }
 
 // ============================================================
-// INVOICES
+// CHARGES
 // ============================================================
 
-// Invoice represents a billing invoice.
-type Invoice struct {
-	ID             string            `json:"id"`
-	WorkspaceID    string            `json:"workspace_id"`
-	CustomerID     string            `json:"customer_id"`
-	SubscriptionID *string           `json:"subscription_id,omitempty"`
-	Number         *string           `json:"number,omitempty"`
-	Status         string            `json:"status"` // draft, open, paid, void, unpaid
-	Currency       string            `json:"currency"`
-	Subtotal       int               `json:"subtotal"`
-	Tax            int               `json:"tax"`
-	Total          int               `json:"total"`
-	AmountPaid     int               `json:"amount_paid"`
-	AmountDue      int               `json:"amount_due"`
-	Lines          []InvoiceLineItem `json:"lines,omitempty"`
-	Notes          *string           `json:"notes,omitempty"`
-	Metadata       map[string]any    `json:"metadata,omitempty"`
-	CreatedAt      time.Time         `json:"created_at"`
-	UpdatedAt      time.Time         `json:"updated_at"`
+// Charge represents a billing charge.
+type Charge struct {
+	ID             string           `json:"id"`
+	WorkspaceID    string           `json:"workspace_id"`
+	CustomerID     string           `json:"customer_id"`
+	SubscriptionID *string          `json:"subscription_id,omitempty"`
+	Number         *string          `json:"number,omitempty"`
+	Status         string           `json:"status"` // draft, open, paid, void, unpaid
+	Currency       string           `json:"currency"`
+	Subtotal       int              `json:"subtotal"`
+	Tax            int              `json:"tax"`
+	Total          int              `json:"total"`
+	AmountPaid     int              `json:"amount_paid"`
+	AmountDue      int              `json:"amount_due"`
+	Lines          []ChargeLineItem `json:"lines,omitempty"`
+	Notes          *string          `json:"notes,omitempty"`
+	Metadata       map[string]any   `json:"metadata,omitempty"`
+	CreatedAt      time.Time        `json:"created_at"`
+	UpdatedAt      time.Time        `json:"updated_at"`
 }
 
-// InvoiceLineItem represents a line item in an invoice.
-type InvoiceLineItem struct {
+// ChargeLineItem represents a line item in a charge.
+type ChargeLineItem struct {
 	Description string `json:"description"`
 	Quantity    int    `json:"quantity"`
 	UnitAmount  int    `json:"unit_amount"`
@@ -775,31 +775,31 @@ type InvoiceLineItem struct {
 	PlanName    string `json:"plan_name,omitempty"`
 }
 
-// CreateInvoiceParams are the parameters for creating a standalone invoice.
-type CreateInvoiceParams struct {
-	CustomerID string            `json:"customer_id"`
-	Currency   string            `json:"currency"`
-	Lines      []InvoiceLineItem `json:"lines"`
-	Notes      *string           `json:"notes,omitempty"`
-	Metadata   map[string]any    `json:"metadata,omitempty"`
+// CreateChargeParams are the parameters for creating a standalone charge.
+type CreateChargeParams struct {
+	CustomerID string           `json:"customer_id"`
+	Currency   string           `json:"currency"`
+	Lines      []ChargeLineItem `json:"lines"`
+	Notes      *string          `json:"notes,omitempty"`
+	Metadata   map[string]any   `json:"metadata,omitempty"`
 }
 
-// ListInvoicesParams are the parameters for listing invoices.
-type ListInvoicesParams struct {
+// ListChargesParams are the parameters for listing charges.
+type ListChargesParams struct {
 	CustomerID string `json:"customer_id"`
 	Limit      int    `json:"limit,omitempty"`
 	Offset     int    `json:"offset,omitempty"`
 }
 
-// InvoiceList is a list of invoices.
-type InvoiceList struct {
-	Invoices []Invoice `json:"invoices"`
-	Total    int       `json:"total"`
+// ChargeList is a list of charges.
+type ChargeList struct {
+	Charges []Charge `json:"charges"`
+	Total   int      `json:"total"`
 }
 
-// ListInvoices lists invoices for a customer.
-func (s *BillingService) ListInvoices(ctx context.Context, params *ListInvoicesParams) (*InvoiceList, error) {
-	path := "/billing/v1/invoices"
+// ListCharges lists charges for a customer.
+func (s *BillingService) ListCharges(ctx context.Context, params *ListChargesParams) (*ChargeList, error) {
+	path := "/billing/v1/charges"
 	if params != nil {
 		query := ""
 		if params.CustomerID != "" {
@@ -822,7 +822,7 @@ func (s *BillingService) ListInvoices(ctx context.Context, params *ListInvoicesP
 		}
 	}
 
-	var list InvoiceList
+	var list ChargeList
 	err := s.client.request(ctx, "GET", path, nil, &list)
 	if err != nil {
 		return nil, err
@@ -830,42 +830,42 @@ func (s *BillingService) ListInvoices(ctx context.Context, params *ListInvoicesP
 	return &list, nil
 }
 
-// CreateInvoice creates a standalone invoice (not tied to a subscription).
-func (s *BillingService) CreateInvoice(ctx context.Context, params *CreateInvoiceParams) (*Invoice, error) {
-	var invoice Invoice
-	err := s.client.request(ctx, "POST", "/billing/v1/invoices", params, &invoice)
+// CreateCharge creates a standalone charge (not tied to a subscription).
+func (s *BillingService) CreateCharge(ctx context.Context, params *CreateChargeParams) (*Charge, error) {
+	var charge Charge
+	err := s.client.request(ctx, "POST", "/billing/v1/charges", params, &charge)
 	if err != nil {
 		return nil, err
 	}
-	return &invoice, nil
+	return &charge, nil
 }
 
-// GetInvoice retrieves an invoice by ID.
-func (s *BillingService) GetInvoice(ctx context.Context, id string) (*Invoice, error) {
-	var invoice Invoice
-	err := s.client.request(ctx, "GET", "/billing/v1/invoices/"+id, nil, &invoice)
+// GetCharge retrieves a charge by ID.
+func (s *BillingService) GetCharge(ctx context.Context, id string) (*Charge, error) {
+	var charge Charge
+	err := s.client.request(ctx, "GET", "/billing/v1/charges/"+id, nil, &charge)
 	if err != nil {
 		return nil, err
 	}
-	return &invoice, nil
+	return &charge, nil
 }
 
-// InvoiceCheckoutResult is the result of creating a checkout for an invoice.
-type InvoiceCheckoutResult struct {
+// ChargeCheckoutResult is the result of creating a checkout for a charge.
+type ChargeCheckoutResult struct {
 	PaymentID   string `json:"payment_id"`
-	InvoiceID   string `json:"invoice_id"`
+	ChargeID    string `json:"charge_id"`
 	CheckoutURL string `json:"checkout_url"`
 }
 
-// CreateInvoiceCheckoutParams are the parameters for creating an invoice checkout.
-type CreateInvoiceCheckoutParams struct {
+// CreateChargeCheckoutParams are the parameters for creating a charge checkout.
+type CreateChargeCheckoutParams struct {
 	RedirectURL string `json:"redirect_url,omitempty"`
 }
 
-// CreateInvoiceCheckout creates a checkout session for a standalone invoice.
-func (s *BillingService) CreateInvoiceCheckout(ctx context.Context, invoiceID string, params *CreateInvoiceCheckoutParams) (*InvoiceCheckoutResult, error) {
-	var result InvoiceCheckoutResult
-	err := s.client.request(ctx, "POST", "/billing/v1/invoices/"+invoiceID+"/checkout", params, &result)
+// CreateChargeCheckout creates a checkout session for a standalone charge.
+func (s *BillingService) CreateChargeCheckout(ctx context.Context, chargeID string, params *CreateChargeCheckoutParams) (*ChargeCheckoutResult, error) {
+	var result ChargeCheckoutResult
+	err := s.client.request(ctx, "POST", "/billing/v1/charges/"+chargeID+"/checkout", params, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -874,9 +874,9 @@ func (s *BillingService) CreateInvoiceCheckout(ctx context.Context, invoiceID st
 
 // PaymentStatus represents the status of a billing payment.
 type PaymentStatus struct {
-	ID        string  `json:"id"`
-	Status    string  `json:"status"`
-	InvoiceID *string `json:"invoice_id,omitempty"`
+	ID       string  `json:"id"`
+	Status   string  `json:"status"`
+	ChargeID *string `json:"charge_id,omitempty"`
 }
 
 // GetPaymentStatus checks the status of a payment, actively polling the provider if still pending.
