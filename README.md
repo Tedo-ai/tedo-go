@@ -67,12 +67,29 @@ client := tedo.NewClient("tedo_live_xxx").
 
 ```go
 httpClient := &http.Client{
-    Timeout: 60 * time.Second,
+    Transport: &http.Transport{
+        MaxIdleConnsPerHost: 10,
+    },
 }
 
 client := tedo.NewClient("tedo_live_xxx").
     WithHTTPClient(httpClient)
 ```
+
+For storage uploads and downloads, prefer request-scoped timeouts on the `context.Context` you pass into each call instead of setting `http.Client.Timeout`. That keeps long-running uploads cancellable without forcing a fixed global timeout.
+
+### Retry Configuration
+
+```go
+client := tedo.NewClient("tedo_live_xxx").
+    WithRetryConfig(tedo.RetryConfig{
+        MaxRetries:     5,
+        InitialBackoff: 250 * time.Millisecond,
+        MaxBackoff:     3 * time.Second,
+    })
+```
+
+Storage operations automatically retry transient transport failures and `408`, `429`, `500`, `502`, `503`, and `504` responses.
 
 ## Error Handling
 
@@ -293,6 +310,65 @@ org, _ := client.Sales.CreateOrganization(ctx, base.ID, &tedo.CreateOrganization
     Name:    "Acme Corp",
     Website: ptr("https://acme.com"),
 })
+```
+
+### Storage
+
+The Storage service covers buckets, objects, upload integrity checks, pre-signed URLs, and usage reporting.
+
+| Method | Description |
+|--------|-------------|
+| `ListBuckets` | List buckets in the workspace |
+| `CreateBucket` | Create a storage bucket |
+| `GetBucket` | Get bucket metadata |
+| `DeleteBucket` | Delete an empty bucket |
+| `ListObjects` | List objects in a bucket |
+| `PutObject` | Upload an object |
+| `PutObjectWithOptions` | Upload an object with integrity options |
+| `HeadObject` | Read object metadata without downloading the body |
+| `GetObject` | Download an object |
+| `DeleteObject` | Delete an object |
+| `PresignURL` | Create a temporary download URL |
+| `GetUsage` | Read storage usage totals |
+
+**Upload with a content hash:**
+
+```go
+payload := []byte("hello world")
+sum := sha256.Sum256(payload)
+
+obj, err := client.Storage.PutObjectWithOptions(
+    ctx,
+    "bucket_123",
+    "inbox/2026/04/message.eml",
+    bytes.NewReader(payload),
+    &tedo.PutObjectOptions{
+        ContentType:   "message/rfc822",
+        ContentSHA256: hex.EncodeToString(sum[:]),
+    },
+)
+if err != nil {
+    log.Fatal(err)
+}
+
+fmt.Println(obj.Hash)
+```
+
+**Check if an object already exists before uploading:**
+
+```go
+ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+defer cancel()
+
+obj, err := client.Storage.HeadObject(ctx, "bucket_123", "sha256/abc123")
+switch {
+case err == nil:
+    fmt.Printf("Already stored: %s (%d bytes)\n", obj.Key, obj.Size)
+case tedo.IsNotFound(err):
+    fmt.Println("Object not found, safe to upload")
+default:
+    log.Fatal(err)
+}
 ```
 
 ## License

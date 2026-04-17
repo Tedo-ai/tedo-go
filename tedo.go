@@ -21,14 +21,27 @@ import (
 
 const (
 	defaultBaseURL = "https://api.tedo.ai"
-	defaultTimeout = 30 * time.Second
 )
+
+var defaultRetryConfig = RetryConfig{
+	MaxRetries:     3,
+	InitialBackoff: 200 * time.Millisecond,
+	MaxBackoff:     2 * time.Second,
+}
+
+// RetryConfig configures how retryable requests are retried.
+type RetryConfig struct {
+	MaxRetries     int
+	InitialBackoff time.Duration
+	MaxBackoff     time.Duration
+}
 
 // Client is the Tedo API client.
 type Client struct {
 	apiKey     string
 	baseURL    string
 	httpClient *http.Client
+	retry      RetryConfig
 
 	// Services
 	Billing *BillingService
@@ -39,11 +52,10 @@ type Client struct {
 // NewClient creates a new Tedo API client.
 func NewClient(apiKey string) *Client {
 	c := &Client{
-		apiKey:  apiKey,
-		baseURL: defaultBaseURL,
-		httpClient: &http.Client{
-			Timeout: defaultTimeout,
-		},
+		apiKey:     apiKey,
+		baseURL:    defaultBaseURL,
+		httpClient: &http.Client{},
+		retry:      defaultRetryConfig,
 	}
 
 	// Initialize services
@@ -64,6 +76,28 @@ func (c *Client) WithBaseURL(url string) *Client {
 func (c *Client) WithHTTPClient(httpClient *http.Client) *Client {
 	c.httpClient = httpClient
 	return c
+}
+
+// WithRetryConfig sets the retry policy used by retry-aware SDK operations.
+func (c *Client) WithRetryConfig(cfg RetryConfig) *Client {
+	c.retry = normalizeRetryConfig(cfg)
+	return c
+}
+
+func normalizeRetryConfig(cfg RetryConfig) RetryConfig {
+	if cfg.MaxRetries < 0 {
+		cfg.MaxRetries = 0
+	}
+	if cfg.InitialBackoff <= 0 {
+		cfg.InitialBackoff = defaultRetryConfig.InitialBackoff
+	}
+	if cfg.MaxBackoff <= 0 {
+		cfg.MaxBackoff = defaultRetryConfig.MaxBackoff
+	}
+	if cfg.MaxBackoff < cfg.InitialBackoff {
+		cfg.MaxBackoff = cfg.InitialBackoff
+	}
+	return cfg
 }
 
 // request performs an API request and decodes the response.

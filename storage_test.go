@@ -8,8 +8,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
+
+func TestNewClient_DefaultHTTPClientHasNoTimeout(t *testing.T) {
+	client := NewClient("tedo_live_test")
+	if client.httpClient.Timeout != 0 {
+		t.Fatalf("default timeout = %s, want 0", client.httpClient.Timeout)
+	}
+}
 
 func TestStorageService_PutObjectEscapesSlashSeparatedKeys(t *testing.T) {
 	const key = "inbox/2026/04/message.eml"
@@ -136,5 +145,87 @@ func TestStorageService_HeadObject(t *testing.T) {
 	}
 	if obj.Hash != `"hash-1"` {
 		t.Fatalf("hash = %q", obj.Hash)
+	}
+}
+
+func TestStorageService_PutObjectRetriesTransientFailure(t *testing.T) {
+	var attempts int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		current := atomic.AddInt32(&attempts, 1)
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Fatalf("read body: %v", err)
+		}
+		if !bytes.Equal(data, []byte("hello")) {
+			t.Fatalf("body = %q, want %q", data, "hello")
+		}
+
+		if current == 1 {
+			w.Header().Set("Retry-After", "0")
+			http.Error(w, "try again", http.StatusServiceUnavailable)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id":           "obj-1",
+			"bucket_id":    "bucket-1",
+			"key":          "message.eml",
+			"size":         5,
+			"content_type": "message/rfc822",
+			"hash":         "hash-1",
+			"created_at":   "2026-01-01T00:00:00Z",
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient("tedo_live_test").
+		WithBaseURL(server.URL).
+		WithHTTPClient(server.Client()).
+		WithRetryConfig(RetryConfig{MaxRetries: 1, InitialBackoff: time.Millisecond, MaxBackoff: time.Millisecond})
+
+	obj, err := client.Storage.PutObject(context.Background(), "bucket-1", "message.eml", strings.NewReader("hello"), "message/rfc822")
+	if err != nil {
+		t.Fatalf("PutObject failed: %v", err)
+	}
+	if obj.Key != "message.eml" {
+		t.Fatalf("key = %q, want %q", obj.Key, "message.eml")
+	}
+	if got := atomic.LoadInt32(&attempts); got != 2 {
+		t.Fatalf("attempts = %d, want 2", got)
+	}
+}
+
+func TestStorageService_HeadObjectRetriesTransientFailure(t *testing.T) {
+	var attempts int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		current := atomic.AddInt32(&attempts, 1)
+		if current == 1 {
+			http.Error(w, "temporary failure", http.StatusBadGateway)
+			return
+		}
+		w.Header().Set("Content-Type", "message/rfc822")
+		w.Header().Set("Content-Length", "42")
+		w.Header().Set("ETag", `"hash-1"`)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient("tedo_live_test").
+		WithBaseURL(server.URL).
+		WithHTTPClient(server.Client()).
+		WithRetryConfig(RetryConfig{MaxRetries: 1, InitialBackoff: time.Millisecond, MaxBackoff: time.Millisecond})
+
+	obj, err := client.Storage.HeadObject(context.Background(), "bucket-1", "message.eml")
+	if err != nil {
+		t.Fatalf("HeadObject failed: %v", err)
+	}
+	if obj.Size != 42 {
+		t.Fatalf("size = %d, want 42", obj.Size)
+	}
+	if got := atomic.LoadInt32(&attempts); got != 2 {
+		t.Fatalf("attempts = %d, want 2", got)
 	}
 }
