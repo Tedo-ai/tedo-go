@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 )
 
@@ -59,6 +60,12 @@ type ListObjectsParams struct {
 	Prefix string
 	Limit  int
 	Offset int
+}
+
+// PutObjectOptions configure upload behavior.
+type PutObjectOptions struct {
+	ContentType   string
+	ContentSHA256 string
 }
 
 // PresignParams are the parameters for creating a pre-signed URL.
@@ -119,17 +126,18 @@ func (s *StorageService) DeleteBucket(ctx context.Context, bucketID string) erro
 func (s *StorageService) ListObjects(ctx context.Context, bucketID string, params *ListObjectsParams) (*ObjectList, error) {
 	path := fmt.Sprintf("/storage/v1/buckets/%s/objects", bucketID)
 	if params != nil {
-		sep := "?"
+		query := url.Values{}
 		if params.Prefix != "" {
-			path += sep + "prefix=" + params.Prefix
-			sep = "&"
+			query.Set("prefix", params.Prefix)
 		}
 		if params.Limit > 0 {
-			path += sep + "limit=" + strconv.Itoa(params.Limit)
-			sep = "&"
+			query.Set("limit", strconv.Itoa(params.Limit))
 		}
 		if params.Offset > 0 {
-			path += sep + "offset=" + strconv.Itoa(params.Offset)
+			query.Set("offset", strconv.Itoa(params.Offset))
+		}
+		if encoded := query.Encode(); encoded != "" {
+			path += "?" + encoded
 		}
 	}
 
@@ -142,7 +150,12 @@ func (s *StorageService) ListObjects(ctx context.Context, bucketID string, param
 
 // PutObject uploads an object. Returns metadata about the stored object.
 func (s *StorageService) PutObject(ctx context.Context, bucketID, key string, body io.Reader, contentType string) (*Object, error) {
-	path := fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, key)
+	return s.PutObjectWithOptions(ctx, bucketID, key, body, &PutObjectOptions{ContentType: contentType})
+}
+
+// PutObjectWithOptions uploads an object with additional upload options.
+func (s *StorageService) PutObjectWithOptions(ctx context.Context, bucketID, key string, body io.Reader, opts *PutObjectOptions) (*Object, error) {
+	path := fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, url.PathEscape(key))
 	url := s.client.baseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, "PUT", url, body)
@@ -151,10 +164,13 @@ func (s *StorageService) PutObject(ctx context.Context, bucketID, key string, bo
 	}
 
 	req.Header.Set("Authorization", "Bearer "+s.client.apiKey)
-	if contentType != "" {
-		req.Header.Set("Content-Type", contentType)
-	} else {
-		req.Header.Set("Content-Type", "application/octet-stream")
+	contentType := "application/octet-stream"
+	if opts != nil && opts.ContentType != "" {
+		contentType = opts.ContentType
+	}
+	req.Header.Set("Content-Type", contentType)
+	if opts != nil && opts.ContentSHA256 != "" {
+		req.Header.Set("X-Content-Sha256", opts.ContentSHA256)
 	}
 
 	resp, err := s.client.httpClient.Do(req)
@@ -179,9 +195,45 @@ func (s *StorageService) PutObject(ctx context.Context, bucketID, key string, bo
 	return &obj, nil
 }
 
+// HeadObject fetches object metadata without downloading the body.
+func (s *StorageService) HeadObject(ctx context.Context, bucketID, key string) (*Object, error) {
+	path := fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, url.PathEscape(key))
+	url := s.client.baseURL + path
+
+	req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+s.client.apiKey)
+
+	resp, err := s.client.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return nil, parseError(resp.StatusCode, []byte(resp.Status))
+	}
+
+	var size int64
+	if cl := resp.Header.Get("Content-Length"); cl != "" {
+		size, _ = strconv.ParseInt(cl, 10, 64)
+	}
+
+	return &Object{
+		BucketID:    bucketID,
+		Key:         key,
+		Size:        size,
+		ContentType: resp.Header.Get("Content-Type"),
+		Hash:        resp.Header.Get("ETag"),
+	}, nil
+}
+
 // GetObject downloads an object. The caller must close the returned ReadCloser.
 func (s *StorageService) GetObject(ctx context.Context, bucketID, key string) (io.ReadCloser, string, error) {
-	path := fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, key)
+	path := fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, url.PathEscape(key))
 	url := s.client.baseURL + path
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -207,7 +259,7 @@ func (s *StorageService) GetObject(ctx context.Context, bucketID, key string) (i
 
 // DeleteObject deletes an object.
 func (s *StorageService) DeleteObject(ctx context.Context, bucketID, key string) error {
-	return s.client.request(ctx, "DELETE", fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, key), nil, nil)
+	return s.client.request(ctx, "DELETE", fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, url.PathEscape(key)), nil, nil)
 }
 
 // --- Pre-signed URLs ---
