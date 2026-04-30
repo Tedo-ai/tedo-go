@@ -231,8 +231,15 @@ type Customer struct {
 	Internal      bool              `json:"internal"`
 	Metadata      map[string]string `json:"metadata,omitempty"`
 	Subscriptions []Subscription    `json:"subscriptions,omitempty"`
-	CreatedAt     time.Time         `json:"created_at"`
-	UpdatedAt     time.Time         `json:"updated_at,omitempty"`
+	// Billing identity fields (migration 000232).
+	CompanyName      *string    `json:"company_name,omitempty"`
+	Country          *string    `json:"country,omitempty"`
+	VATNumber        *string    `json:"vat_number,omitempty"`
+	CustomerKind     *string    `json:"customer_kind,omitempty"`
+	DetailsUpdatedAt *time.Time `json:"details_updated_at,omitempty"`
+	DetailsUpdatedBy *string    `json:"details_updated_by,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at,omitempty"`
 }
 
 // CreateCustomerParams are the parameters for creating a customer.
@@ -326,6 +333,11 @@ type UpdateCustomerParams struct {
 	ExternalID *string           `json:"external_id,omitempty"`
 	Internal   *bool             `json:"internal,omitempty"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
+	// Billing identity fields (migration 000232).
+	CompanyName  *string `json:"company_name,omitempty"`
+	Country      *string `json:"country,omitempty"`
+	VATNumber    *string `json:"vat_number,omitempty"`
+	CustomerKind *string `json:"customer_kind,omitempty"`
 }
 
 // UpdateCustomer updates a customer.
