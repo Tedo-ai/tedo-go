@@ -51,6 +51,24 @@ func main() {
         log.Fatal(err)
     }
     fmt.Printf("Created lead: %s\n", lead.ID)
+
+    // Projects: create a project and a work item
+    project, err := client.Projects.CreateProject(context.Background(), &tedo.CreateProjectParams{
+        Name:        "Q2 launch",
+        Description: "Public API rollout",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    workItem, err := client.Projects.CreateProjectWorkItem(context.Background(), project.ID, &tedo.CreateWorkItemParams{
+        Title:       "Publish Go SDK bindings",
+        Description: "Use the Projects public API",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Created work item: %s\n", workItem.ID)
 }
 ```
 
@@ -90,6 +108,18 @@ client := tedo.NewClient("tedo_live_xxx").
 ```
 
 Storage operations automatically retry transient transport failures and `408`, `429`, `500`, `502`, `503`, and `504` responses.
+
+### Per-request Headers
+
+Projects commands accept request options for idempotency and request tracing:
+
+```go
+project, err := client.Projects.CreateProject(ctx, &tedo.CreateProjectParams{
+    Name: "Q2 launch",
+}, tedo.WithIdempotencyKey("project-q2-launch"), tedo.WithRequestID("req_123"))
+```
+
+For Projects creates, deletes, and attachment attach/detach calls, the SDK generates an `Idempotency-Key` when you do not provide one.
 
 ## Error Handling
 
@@ -153,6 +183,52 @@ for {
 ### Sales
 
 The Sales service covers pipelines, stages, leads, deals, activities, notes, and contacts.
+
+### Projects
+
+The Projects service covers projects, work items, workflow configuration, read-only comments, activity feeds, and file-reference attachments.
+
+Projects V1 intentionally does not expose comment writes, raw multipart attachment upload, live collaborative edit fields, bulk operations, or task-named aliases. Attach files by uploading through Files/Storage first, then call `AttachFile` with the file ID.
+
+#### Methods
+
+| Method | Description |
+|--------|-------------|
+| `CreateProject` | Create a project |
+| `GetProject` | Get a project by ID |
+| `ListProjects` | List projects with cursor pagination |
+| `UpdateProject` | Update a project |
+| `ArchiveProject` | Archive a project |
+| `RestoreProject` | Restore a project |
+| `DeleteProject` | Delete a project |
+| `CreateWorkItem` | Create a work item |
+| `CreateProjectWorkItem` | Create a work item bound to a project path |
+| `GetWorkItem` | Get a work item by ID |
+| `ListWorkItems` | List work items with cursor pagination |
+| `ListProjectWorkItems` | List work items in a project |
+| `UpdateWorkItem` | Update a work item |
+| `CompleteWorkItem` | Complete or reopen a work item |
+| `ArchiveWorkItem` | Archive a work item |
+| `RestoreWorkItem` | Restore a work item |
+| `DeleteWorkItem` | Delete a work item |
+| `ListSubtasks` | List work-item subtasks |
+| `ListWorkItemActivity` | List work-item activity entries |
+| `PeekNextDisplayID` | Preview the next display ID |
+| `ListStatuses` | List workflow statuses |
+| `CreateStatus` | Create a workflow status |
+| `UpdateStatus` | Update a workflow status |
+| `DeleteStatus` | Delete a workflow status |
+| `ListWorkItemTypes` | List work-item types |
+| `CreateWorkItemType` | Create a work-item type |
+| `UpdateWorkItemType` | Update a work-item type |
+| `DeleteWorkItemType` | Delete a work-item type |
+| `ListPriorityLevels` | List priority levels |
+| `UpdatePriorityLevel` | Update a priority level |
+| `ResetPriorityLevel` | Reset a priority level |
+| `ListComments` | List comments; V1 read-only |
+| `ListAttachments` | List file-reference attachments |
+| `AttachFile` | Attach an existing Files/Storage file reference |
+| `DetachAttachment` | Detach a file reference |
 
 #### Constants
 

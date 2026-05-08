@@ -44,9 +44,10 @@ type Client struct {
 	retry      RetryConfig
 
 	// Services
-	Billing *BillingService
-	Sales   *SalesService
-	Storage *StorageService
+	Billing  *BillingService
+	Projects *ProjectsService
+	Sales    *SalesService
+	Storage  *StorageService
 }
 
 // NewClient creates a new Tedo API client.
@@ -60,6 +61,7 @@ func NewClient(apiKey string) *Client {
 
 	// Initialize services
 	c.Billing = &BillingService{client: c}
+	c.Projects = &ProjectsService{client: c}
 	c.Sales = &SalesService{client: c}
 	c.Storage = &StorageService{client: c}
 
@@ -100,8 +102,39 @@ func normalizeRetryConfig(cfg RetryConfig) RetryConfig {
 	return cfg
 }
 
+type requestOptions struct {
+	headers map[string]string
+}
+
+// RequestOption configures a single API request.
+type RequestOption func(*requestOptions)
+
+// WithHeader adds an HTTP header to a request.
+func WithHeader(key, value string) RequestOption {
+	return func(opts *requestOptions) {
+		if opts.headers == nil {
+			opts.headers = make(map[string]string)
+		}
+		opts.headers[key] = value
+	}
+}
+
+// WithIdempotencyKey sets the Idempotency-Key header for command requests.
+func WithIdempotencyKey(key string) RequestOption {
+	return WithHeader("Idempotency-Key", key)
+}
+
+// WithRequestID sets the X-Request-ID header for request tracing.
+func WithRequestID(id string) RequestOption {
+	return WithHeader("X-Request-ID", id)
+}
+
 // request performs an API request and decodes the response.
 func (c *Client) request(ctx context.Context, method, path string, body, result any) error {
+	return c.requestWithOptions(ctx, method, path, body, result)
+}
+
+func (c *Client) requestWithOptions(ctx context.Context, method, path string, body, result any, options ...RequestOption) error {
 	var bodyReader io.Reader
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
@@ -119,6 +152,15 @@ func (c *Client) request(ctx context.Context, method, path string, body, result 
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	var requestOpts requestOptions
+	for _, option := range options {
+		if option != nil {
+			option(&requestOpts)
+		}
+	}
+	for key, value := range requestOpts.headers {
+		req.Header.Set(key, value)
+	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -151,10 +193,12 @@ func (c *Client) request(ctx context.Context, method, path string, body, result 
 
 // Error represents an API error.
 type Error struct {
-	StatusCode int    `json:"-"`
-	Code       string `json:"code"`
-	Message    string `json:"message"`
-	Field      string `json:"field,omitempty"`
+	StatusCode int            `json:"-"`
+	Code       string         `json:"code"`
+	Message    string         `json:"message"`
+	Field      string         `json:"field,omitempty"`
+	Details    map[string]any `json:"details,omitempty"`
+	RequestID  string         `json:"request_id,omitempty"`
 }
 
 func (e *Error) Error() string {
@@ -196,6 +240,21 @@ func parseError(statusCode int, body []byte) error {
 			Code:    "unknown_error",
 			Message: string(body),
 		}
+	}
+	if apiErr.Code == "" {
+		var legacy struct {
+			Error   string `json:"error"`
+			Message string `json:"message"`
+			Field   string `json:"field"`
+		}
+		if err := json.Unmarshal(body, &legacy); err == nil && legacy.Error != "" {
+			apiErr.Code = legacy.Error
+			apiErr.Message = legacy.Message
+			apiErr.Field = legacy.Field
+		}
+	}
+	if apiErr.Code == "" {
+		apiErr.Code = "unknown_error"
 	}
 	apiErr.StatusCode = statusCode
 	return &apiErr
