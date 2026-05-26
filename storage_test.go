@@ -20,44 +20,89 @@ func TestNewClient_DefaultHTTPClientHasNoTimeout(t *testing.T) {
 	}
 }
 
-func TestStorageService_PutObjectEscapesSlashSeparatedKeys(t *testing.T) {
-	const key = "inbox/2026/04/message.eml"
+func TestStorageService_ObjectKeyPathEscapesPerSegment(t *testing.T) {
+	const key = "assets/browser-X.js"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPut {
-			t.Fatalf("method = %s, want PUT", r.Method)
-		}
-		if got, want := r.URL.EscapedPath(), "/storage/v1/buckets/bucket-1/objects/inbox%2F2026%2F04%2Fmessage.eml"; got != want {
+		// Regression for tedo-core PR #256: object keys are escaped per segment
+		// so literal slashes remain path separators and never become %2F.
+		if got, want := r.URL.EscapedPath(), "/storage/v1/buckets/bucket-1/objects/assets/browser-X.js"; got != want {
 			t.Fatalf("escaped path = %q, want %q", got, want)
 		}
-		data, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Fatalf("read body: %v", err)
-		}
-		if !bytes.Equal(data, []byte("hello")) {
-			t.Fatalf("body = %q, want %q", data, "hello")
-		}
 
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"id":           "obj-1",
-			"bucket_id":    "bucket-1",
-			"key":          key,
-			"size":         5,
-			"content_type": "message/rfc822",
-			"hash":         "hash-1",
-			"created_at":   "2026-01-01T00:00:00Z",
-		})
+		switch r.Method {
+		case http.MethodPut:
+			data, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatalf("read body: %v", err)
+			}
+			if !bytes.Equal(data, []byte("console.log('x');")) {
+				t.Fatalf("body = %q, want %q", data, "console.log('x');")
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id":           "obj-1",
+				"bucket_id":    "bucket-1",
+				"key":          key,
+				"size":         17,
+				"content_type": "application/javascript",
+				"hash":         "hash-1",
+				"created_at":   "2026-01-01T00:00:00Z",
+			})
+		case http.MethodGet:
+			w.Header().Set("Content-Type", "application/javascript")
+			_, _ = w.Write([]byte("console.log('x');"))
+		case http.MethodHead:
+			w.Header().Set("Content-Type", "application/javascript")
+			w.Header().Set("Content-Length", "17")
+			w.Header().Set("ETag", `"hash-1"`)
+			w.WriteHeader(http.StatusOK)
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("method = %s, want PUT/GET/HEAD/DELETE", r.Method)
+		}
 	}))
 	defer server.Close()
 
 	client := NewClient("tedo_live_test").WithBaseURL(server.URL).WithHTTPClient(server.Client())
-	obj, err := client.Storage.PutObject(context.Background(), "bucket-1", key, strings.NewReader("hello"), "message/rfc822")
+	obj, err := client.Storage.PutObject(context.Background(), "bucket-1", key, strings.NewReader("console.log('x');"), "application/javascript")
 	if err != nil {
 		t.Fatalf("PutObject failed: %v", err)
 	}
 	if obj.Key != key {
 		t.Fatalf("returned key = %q, want %q", obj.Key, key)
+	}
+
+	body, contentType, err := client.Storage.GetObject(context.Background(), "bucket-1", key)
+	if err != nil {
+		t.Fatalf("GetObject failed: %v", err)
+	}
+	defer body.Close()
+	data, err := io.ReadAll(body)
+	if err != nil {
+		t.Fatalf("read downloaded body: %v", err)
+	}
+	if string(data) != "console.log('x');" {
+		t.Fatalf("downloaded body = %q", data)
+	}
+	if contentType != "application/javascript" {
+		t.Fatalf("download content-type = %q", contentType)
+	}
+
+	head, err := client.Storage.HeadObject(context.Background(), "bucket-1", key)
+	if err != nil {
+		t.Fatalf("HeadObject failed: %v", err)
+	}
+	if head.Key != key {
+		t.Fatalf("head key = %q, want %q", head.Key, key)
+	}
+	if head.Size != 17 {
+		t.Fatalf("head size = %d, want 17", head.Size)
+	}
+
+	if err := client.Storage.DeleteObject(context.Background(), "bucket-1", key); err != nil {
+		t.Fatalf("DeleteObject failed: %v", err)
 	}
 }
 
