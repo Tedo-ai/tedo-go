@@ -236,6 +236,7 @@ type QueryRowsParams struct {
 	Fields    string
 	Sort      string
 	Expand    string
+	V         string `json:"v,omitempty"`
 	Cursor    string
 	Limit     int
 	GroupBy   string
@@ -600,6 +601,7 @@ func queryString(params any) string {
 			setString(values, "fields", p.Fields)
 			setString(values, "sort", p.Sort)
 			setString(values, "expand", p.Expand)
+			setString(values, "v", p.V)
 			setString(values, "cursor", p.Cursor)
 			setString(values, "group_by", p.GroupBy)
 			setString(values, "aggregate", p.Aggregate)
