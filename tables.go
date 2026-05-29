@@ -624,7 +624,3 @@ func setString(values url.Values, key, value string) {
 		values.Set(key, value)
 	}
 }
-
-func pathEscape(value string) string {
-	return url.PathEscape(value)
-}
