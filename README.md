@@ -69,6 +69,36 @@ func main() {
         log.Fatal(err)
     }
     fmt.Printf("Created work item: %s\n", workItem.ID)
+
+    // Tables: create a table and query editorial rows
+    created, err := client.Tables.CreateTable(context.Background(), &tedo.CreateTableParams{
+        Name: "Editorial Pipeline",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    _, err = client.Tables.UpsertColumn(context.Background(), created.Table.ID, &tedo.UpsertColumnParams{
+        Name: "Title",
+        Key:  "title",
+        Type: tedo.ColumnTypeText,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    _, err = client.Tables.BulkUpsertRows(context.Background(), created.Table.ID, &tedo.BulkUpsertRowsParams{
+        KeyColumn: "title",
+        Rows: []tedo.JSONMap{{"title": "Customer story"}},
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    rows, err := client.Tables.QueryRows(context.Background(), created.Table.ID, &tedo.QueryRowsParams{
+        Limit: 10,
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    fmt.Printf("Found rows: %d\n", len(rows.Rows))
 }
 ```
 

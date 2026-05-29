@@ -48,6 +48,7 @@ type Client struct {
 	Projects *ProjectsService
 	Sales    *SalesService
 	Storage  *StorageService
+	Tables   *TablesService
 }
 
 // NewClient creates a new Tedo API client.
@@ -64,6 +65,7 @@ func NewClient(apiKey string) *Client {
 	c.Projects = &ProjectsService{client: c}
 	c.Sales = &SalesService{client: c}
 	c.Storage = &StorageService{client: c}
+	c.Tables = &TablesService{client: c}
 
 	return c
 }
