@@ -166,7 +166,7 @@ func (s *StorageService) PutObjectWithOptions(ctx context.Context, bucketID, key
 		return nil, fmt.Errorf("read request body: %w", err)
 	}
 
-	path := fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, url.PathEscape(key))
+	path := fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, escapeObjectKeyPath(key))
 	contentType := "application/octet-stream"
 	if opts != nil && opts.ContentType != "" {
 		contentType = opts.ContentType
@@ -189,7 +189,7 @@ func (s *StorageService) PutObjectWithOptions(ctx context.Context, bucketID, key
 
 // HeadObject fetches object metadata without downloading the body.
 func (s *StorageService) HeadObject(ctx context.Context, bucketID, key string) (*Object, error) {
-	path := fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, url.PathEscape(key))
+	path := fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, escapeObjectKeyPath(key))
 	resp, err := s.do(ctx, http.MethodHead, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -216,7 +216,7 @@ func (s *StorageService) HeadObject(ctx context.Context, bucketID, key string) (
 
 // GetObject downloads an object. The caller must close the returned ReadCloser.
 func (s *StorageService) GetObject(ctx context.Context, bucketID, key string) (io.ReadCloser, string, error) {
-	path := fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, url.PathEscape(key))
+	path := fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, escapeObjectKeyPath(key))
 	resp, err := s.do(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, "", err
@@ -233,7 +233,20 @@ func (s *StorageService) GetObject(ctx context.Context, bucketID, key string) (i
 
 // DeleteObject deletes an object.
 func (s *StorageService) DeleteObject(ctx context.Context, bucketID, key string) error {
-	return s.doJSON(ctx, http.MethodDelete, fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, url.PathEscape(key)), nil, nil, nil)
+	return s.doJSON(ctx, http.MethodDelete, fmt.Sprintf("/storage/v1/buckets/%s/objects/%s", bucketID, escapeObjectKeyPath(key)), nil, nil, nil)
+}
+
+// escapeObjectKeyPath escapes an object key for use in a path. Slashes are
+// semantic object-key separators and must remain literal in the route.
+func escapeObjectKeyPath(key string) string {
+	if key == "" {
+		return ""
+	}
+	parts := strings.Split(key, "/")
+	for i, part := range parts {
+		parts[i] = url.PathEscape(part)
+	}
+	return strings.Join(parts, "/")
 }
 
 // --- Pre-signed URLs ---
